@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <fstream>
 
 // #include "absl/flags/flag.h"
 // #include "absl/flags/parse.h"
@@ -170,7 +171,14 @@ class StoreSrv final {
   void HandleRpcs() {
     // Spawn a new CallData instance to serve new clients.
     // ADD- reading vendor_address file
-    std::vector<std::string> vendor_addresses = {"localhost:50051", "localhost:50052", "localhost:50053", "localhost:50054", "localhost:50055"};
+    std::vector<std::string> vendor_addresses;
+    std::ifstream addr_file("vendor_addresses.txt");
+    std::string line;
+    //getting the addresses from the file
+    while(std::getline(addr_file, line)){
+    	vendor_addresses.push_back(line);
+    }
+    //std::vector<std::string> vendor_addresses = {"localhost:50051", "localhost:50052", "localhost:50053", "localhost:50054", "localhost:50055"};
     //create Calldata for each vendor
     for(const std::string& vendor_address : vendor_addresses){
     	new CallData(&service_, cq_.get(), vendor_address);
