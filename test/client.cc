@@ -51,7 +51,6 @@ bool StoreClient::getProducts(const ProductSpec& product_spec, ProductQueryResul
               << std::endl;
     return false;
   }
-
   for (const auto result : reply.products()) {
     ProductQueryResult::Bid bid;
     bid.price_ = result.price();
