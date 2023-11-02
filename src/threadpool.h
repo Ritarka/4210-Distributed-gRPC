@@ -1,4 +1,10 @@
 #pragma once
+#include <thread>
+#include <vector>
+#include <queue>
+#include <functional>
+#include <condition_variable>
+#include <atomic>
 
 class threadpool {
 public:
