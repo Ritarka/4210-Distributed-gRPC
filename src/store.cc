@@ -1,20 +1,19 @@
-#include <iostream>
+#include <mutex>
 #include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 #include <fstream>
+#include <iostream>
 
-// #include "absl/flags/flag.h"
-// #include "absl/flags/parse.h"
 #include "absl/strings/str_format.h"
 
-#include <grpc/support/log.h>
 #include <grpcpp/grpcpp.h>
+#include <grpc/support/log.h>
 
-#include "threadpool.h"
 #include "../external/protos/store.grpc.pb.h"
 #include "../external/protos/vendor.grpc.pb.h"
+#include "threadpool.h"
 
 
 using grpc::Server;
@@ -39,6 +38,53 @@ std::string ip_addr; // for command line
 int port; //parse ip_addr to get the port
 int num_threads;
 std::vector<std::string> vendor_addresses;
+
+std::mutex q_mutex;
+
+threadpool::threadpool(int num_threads) : num_threads(num_threads) {
+  printf("Creating threadpool with %d threads\n", num_threads);
+  free = num_threads;
+  
+  threads_is_done = new bool[num_max_threads];
+  std::fill_n(threads_is_done, num_max_threads, false);
+  std::vector<std::thread*> threads(num_max_threads, NULL);
+
+  for (int i = 0; i < num_max_threads; ++i) {
+    threads[i] = new std::thread(warm_up, std::ref(threads_is_done[i]));
+  }
+  
+  std::vector<ProductQueryResult> test_results(product_specs.size());
+
+  size_t thread_ind = 0;
+  for (int i = 0; i < product_specs.size(); ++i) {
+    while (!threads_is_done[thread_ind]) {
+      thread_ind = (thread_ind + 1) % num_max_threads;
+    }
+    
+    threads[thread_ind]->join();
+    delete threads[thread_ind];
+    
+    threads[thread_ind] = new std::thread(thread_task, 
+          server_addr, std::ref(product_specs[i]), std::ref(test_results[i]), i, std::ref(threads_is_done[i]));
+    
+    thread_ind = (thread_ind + 1) % num_max_threads;
+  }
+
+  for (int i = 0; i < num_max_threads; ++i) {
+    threads[i]->join();
+  }
+  delete threads_is_done;
+}
+
+bool threadpool::available() {
+  return free > 0;
+}
+
+void threadpool::assign() {
+  ;
+}
+
+
 
 class StoreSrv final {
  public:
@@ -197,6 +243,8 @@ int main(int argc, char** argv) {
   ip_addr = argv[2];
   num_threads = atoi(argv[3]);
 
+  threadpool pool(num_threads);
+
   //find the last occurence of :
   size_t colon_pos = ip_addr.find_last_of(':');
   if(colon_pos != std::string::npos){
@@ -218,4 +266,3 @@ int main(int argc, char** argv) {
   store.run();
   return 0;
 }
-
