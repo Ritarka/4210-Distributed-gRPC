@@ -205,8 +205,9 @@ class StoreSrv final {
     bool ok;
 
     while (true) {
-
+      std::unique_lock<std::mutex> q_lock(q_mutex);
       GPR_ASSERT(cq_->Next(&tag, &ok));
+      q_lock.unlock(); // release the mutex
       GPR_ASSERT(ok);
       // pool->queueJob(static_cast<CallData*>(tag)->Proceed);
       // pool->queueJob([&]{ static_cast<CallData*>(tag)->Proceed(); });

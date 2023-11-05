@@ -11,29 +11,14 @@ void threadpool::threadLoop() {
         {
             std::unique_lock<std::mutex> lock(queue_mutex);
             //also have to check should_terminate? - false initially
-            mutex_condition.wait(lock, [this]{return should_terminate || !jobs.empty(); });
-            //if should_terminate is true- thread should stop looking for a job
-            if(should_terminate){
-            	//decrement active thread
-            	active_threads--; // do we decrement??
-            	return; // it should return?
-            }
+            mutex_condition.wait(lock, [this]{return !jobs.empty(); });
             job = jobs.front();
             jobs.pop();
         }
 	active_threads++; // add before the job
         job();
         active_threads--; //decrease after the job 
-        
-        //handling thread object destruction- join the threads for no zombies
-        //if(active_threads == 0 && should_terminate) {
-        	//for (std::thread& thread: threads){
-        		//if the threads are joinable
-        		//if(thread.joinable()){
-        			//thread.join();
-        		//}
-        	//}
-        //}
+       
         
     }
 }
