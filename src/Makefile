@@ -199,6 +199,30 @@ store.cc.s:
 	cd /home/ritarka/cs4210/project3_template && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/store.dir/build.make src/CMakeFiles/store.dir/store.cc.s
 .PHONY : store.cc.s
 
+threadpool.o: threadpool.cc.o
+.PHONY : threadpool.o
+
+# target to build an object file
+threadpool.cc.o:
+	cd /home/ritarka/cs4210/project3_template && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/store.dir/build.make src/CMakeFiles/store.dir/threadpool.cc.o
+.PHONY : threadpool.cc.o
+
+threadpool.i: threadpool.cc.i
+.PHONY : threadpool.i
+
+# target to preprocess a source file
+threadpool.cc.i:
+	cd /home/ritarka/cs4210/project3_template && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/store.dir/build.make src/CMakeFiles/store.dir/threadpool.cc.i
+.PHONY : threadpool.cc.i
+
+threadpool.s: threadpool.cc.s
+.PHONY : threadpool.s
+
+# target to generate assembly for a file
+threadpool.cc.s:
+	cd /home/ritarka/cs4210/project3_template && $(MAKE) $(MAKESILENT) -f src/CMakeFiles/store.dir/build.make src/CMakeFiles/store.dir/threadpool.cc.s
+.PHONY : threadpool.cc.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -215,6 +239,9 @@ help:
 	@echo "... store.o"
 	@echo "... store.i"
 	@echo "... store.s"
+	@echo "... threadpool.o"
+	@echo "... threadpool.i"
+	@echo "... threadpool.s"
 .PHONY : help
 
 

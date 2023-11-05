@@ -42,53 +42,14 @@ std::string addr_path;
 std::string ip_addr; // for command line
 int port; //parse ip_addr to get the port
 int num_threads;
+
 std::vector<std::string> vendor_addresses;
+int free_threads;
+std::vector<std::thread*> threads;
 
 std::mutex q_mutex;
 
-threadpool::threadpool(int num_threads) : num_threads(num_threads) {
-  printf("Creating threadpool with %d threads\n", num_threads);
-  free = num_threads;
-  
-  threads_is_done = new bool[num_max_threads];
-  std::fill_n(threads_is_done, num_max_threads, false);
-  std::vector<std::thread*> threads(num_max_threads, NULL);
-
-  for (int i = 0; i < num_max_threads; ++i) {
-    threads[i] = new std::thread(warm_up, std::ref(threads_is_done[i]));
-  }
-  
-  std::vector<ProductQueryResult> test_results(product_specs.size());
-
-  size_t thread_ind = 0;
-  for (int i = 0; i < product_specs.size(); ++i) {
-    while (!threads_is_done[thread_ind]) {
-      thread_ind = (thread_ind + 1) % num_max_threads;
-    }
-    
-    threads[thread_ind]->join();
-    delete threads[thread_ind];
-    
-    threads[thread_ind] = new std::thread(thread_task, 
-          server_addr, std::ref(product_specs[i]), std::ref(test_results[i]), i, std::ref(threads_is_done[i]));
-    
-    thread_ind = (thread_ind + 1) % num_max_threads;
-  }
-
-  for (int i = 0; i < num_max_threads; ++i) {
-    threads[i]->join();
-  }
-  delete threads_is_done;
-}
-
-bool threadpool::available() {
-  return free > 0;
-}
-
-void threadpool::assign() {
-  ;
-}
-
+threadpool* pool;
 
 
 class StoreSrv final {
@@ -119,20 +80,12 @@ class StoreSrv final {
     server_ = builder.BuildAndStart();
     std::cout << "Server listening on " << server_address << std::endl;
 
-    // Proceed to the server's main loop.
-    // Add the threadpool threads here, each thread will call HandleRpcs
-    //start the threadpool that will call HandleRpc() on behalf of the clients
-    //for(int i = 0; i < num_threads; i++){
-    	//thread_pool_.enqueue([this]() {
-    	//HandleRpcs();
-    	
-    	//});
-    //}
-    //wait for the pool to finish - main thread exits after pool finishes
-    //thread_pool_.wait();
-    HandleRpcs();
-    
-    
+    for (int i = 0; i < num_threads; i++);
+      pool->queueJob([&]{ HandleRpcs(); });
+    // HandleRpcs();    
+
+
+
   }
 
  private:
@@ -154,11 +107,6 @@ class StoreSrv final {
         // Make this instance progress to the PROCESS state.
         status_ = PROCESS;
 
-        // As part of the initial CREATE state, we *request* that the system
-        // start processing SayHello requests. In this request, "this" acts are
-        // the tag uniquely identifying the request (so that different CallData
-        // instances can serve different requests concurrently), in this case
-        // the memory address of this CallData instance.
         service_->RequestgetProducts(&ctx_, &request_, &responder_, cq_, cq_, this);
 		
       } else if (status_ == PROCESS) {
@@ -169,10 +117,6 @@ class StoreSrv final {
 
 
         for (std::string vendor_address_ : vendor_addresses) {
-          // The actual processing.
-          //no thread support right now
-          //make asyn rpc call to vendors
-          //this is our async client- gets result from vendor
           BidQuery vendor_request; //create a request to vendors
           BidReply vendor_reply; // create a response from vendors
           
@@ -190,17 +134,18 @@ class StoreSrv final {
           std::unique_ptr<ClientAsyncResponseReader<BidReply>>rpc(vendor_stub->AsyncgetProductBid(&vendor_context, vendor_request, &client_cq_));
           
           // Request that, upon completion of the RPC, "reply" be updated with the
-    	  // server's response; "status" with the indication of whether the operation
-    	  // was successful. Tag the request with the integer 1.
-    	  rpc->Finish(&vendor_reply, &client_status, (void*)1);
-    	  void* client_got_tag;
-    	  bool client_ok = false;
-    	  //block until the next result is available
-    	  GPR_ASSERT(client_cq_.Next(&client_got_tag, &client_ok));
-    	  //verify that the result from client cq corresponds, by its tag
-    	  GPR_ASSERT(client_got_tag == (void*)1);
-    	  //and the request is completed succesfully 
-    	  GPR_ASSERT(client_ok);
+          // server's response; "status" with the indication of whether the operation
+          // was successful. Tag the request with the integer 1.
+          rpc->Finish(&vendor_reply, &client_status, (void*)1);
+          void* client_got_tag;
+          bool client_ok = false;
+          //block until the next result is available
+          GPR_ASSERT(client_cq_.Next(&client_got_tag, &client_ok));
+          //verify that the result from client cq corresponds, by its tag
+          GPR_ASSERT(client_got_tag == (void*)1);
+          //and the request is completed succesfully 
+          GPR_ASSERT(client_ok);
+
           //process vendor response
           //ProductReply reply; //reply_ defined in private
           if(client_status.ok()){
@@ -211,9 +156,7 @@ class StoreSrv final {
           }
         }
         
-        // And we are done! Let the gRPC runtime know we've finished, using the
-        // memory address of this instance as the uniquely identifying tag for
-        // the event.
+        // And we are done! Let the gRPC runtime know we've finished
         status_ = FINISH;
         responder_.Finish(reply_, Status::OK, this);
       } else {
@@ -257,15 +200,16 @@ class StoreSrv final {
     bool ok;
 
     while (true) {
-      // Block waiting to read the next event from the completion queue. The
-      // event is uniquely identified by its tag, which in this case is the
-      // memory address of a CallData instance.
-      // The return value of Next should always be checked. This return value
-      // tells us whether there is any kind of event or cq_ is shutting down.
+
       GPR_ASSERT(cq_->Next(&tag, &ok));
       GPR_ASSERT(ok);
+      // pool->queueJob(static_cast<CallData*>(tag)->Proceed);
+      // pool->queueJob([&]{ static_cast<CallData*>(tag)->Proceed(); });
       static_cast<CallData*>(tag)->Proceed();
+
     }
+
+
   }
 
   std::unique_ptr<ServerCompletionQueue> cq_;
@@ -274,15 +218,13 @@ class StoreSrv final {
   
 };
 
-
-
 int main(int argc, char** argv) {
   
   addr_path = argv[1];
   ip_addr = argv[2];
   num_threads = atoi(argv[3]);
 
-  threadpool pool(num_threads);
+  // threadpool pool(num_threads);
 
   //find the last occurence of :
   size_t colon_pos = ip_addr.find_last_of(':');
@@ -295,13 +237,42 @@ int main(int argc, char** argv) {
 
   std::ifstream addr_file("vendor_addresses.txt");
   std::string line;
+
   //getting the addresses from the file
   while(std::getline(addr_file, line)) {
     vendor_addresses.push_back(line);
     std::cout << line << std::endl;
   }
 
+  // std::fill_n(threads, num_threads, NULL);
+  free_threads = num_threads;
+
+  pool = new threadpool(num_threads);
+
   StoreSrv store;
   store.run();
+
+  delete pool;
+  
   return 0;
 }
+
+      // if (free_threads) {
+      //   std::unique_ptr<CallData> ptr = std::make_unique<CallData>(tag);
+        
+      //   // if threadpool free execute, else wait
+        
+      //   int i;
+      //   for (i = 0; i < num_threads; i++) {
+      //     if (threads[i] == NULL) break;
+      //   }
+      //   threads[i] = new std::thread(ptr->Proceed);
+      //   free_threads--;
+      // } else {
+      //   for (int i = 0; i < num_threads; i++) {
+      //     if (threads[i]->joinable()) {
+      //       threads[i]->join();
+      //       free_threads++;
+      //     }
+      //   }
+      // }
