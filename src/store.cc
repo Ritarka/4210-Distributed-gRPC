@@ -6,7 +6,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "absl/strings/str_format.h"
+//#include "absl/strings/str_format.h"
 
 #include <grpcpp/grpcpp.h>
 #include <grpc/support/log.h>
@@ -40,6 +40,7 @@ using vendor::BidReply;
 
 std::string addr_path;
 std::string ip_addr; // for command line
+std::string server_ip; //server's ip address
 int port; //parse ip_addr to get the port
 int num_threads;
 
@@ -49,15 +50,17 @@ std::vector<std::thread*> threads;
 
 std::mutex q_mutex;
 
-threadpool* pool;
+//threadpool& pool_;
 
 
 class StoreSrv final {
  public:
  //initialize the threadpool
-  //StoreSrv(int num_threads)
-  	//: thread_pool_(num_threads) {}
+  StoreSrv(int num_threads)
+  	: pool_(num_threads) {}
   ~StoreSrv() {
+    //destroy threadpool when server shutsdown
+    pool_.stop();
     server_->Shutdown();
     // Always shutdown the completion queue after the server.
     cq_->Shutdown();
@@ -65,8 +68,8 @@ class StoreSrv final {
 
   // There is no shutdown handling in this code.
   void run() {
-    std::string server_address = absl::StrFormat("0.0.0.0:%d", port);
-
+    //std::string server_address = absl::StrFormat("0.0.0.0:%d", port);
+    std::string server_address = server_ip + std::to_string(port);
     ServerBuilder builder;
     // Listen on the given address without any authentication mechanism.
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -79,10 +82,11 @@ class StoreSrv final {
     // Finally assemble the server.
     server_ = builder.BuildAndStart();
     std::cout << "Server listening on " << server_address << std::endl;
-
-    for (int i = 0; i < num_threads; i++);
-      pool->queueJob([&]{ HandleRpcs(); });
-    // HandleRpcs();    
+    pool_.start();
+    for (int i = 0; i < num_threads; i++){
+    	pool_.queueJob([this](){ HandleRpcs(); });
+    }
+     //HandleRpcs();    
 
 
 
@@ -188,6 +192,7 @@ class StoreSrv final {
     // Let's implement a tiny state machine with the following states.
     enum CallStatus { CREATE, PROCESS, FINISH };
     CallStatus status_;  // The current serving state.
+    
   };
 
   // This can be run in multiple threads if needed.
@@ -215,6 +220,8 @@ class StoreSrv final {
   std::unique_ptr<ServerCompletionQueue> cq_;
   Store::AsyncService service_;
   std::unique_ptr<Server> server_;
+  //thread pool
+  threadpool pool_;
   
 };
 
@@ -224,12 +231,15 @@ int main(int argc, char** argv) {
   ip_addr = argv[2];
   num_threads = atoi(argv[3]);
 
-  // threadpool pool(num_threads);
+  //threadpool pool(num_threads);
 
   //find the last occurence of :
   size_t colon_pos = ip_addr.find_last_of(':');
   if(colon_pos != std::string::npos){
   	//extract the port number
+  	server_ip = ip_addr.substr(0, colon_pos + 1);
+  	//server_ip = "0.0.0.0:";
+  	std::cout << "IP: " << server_ip << std::endl;
   	std::string port_str = ip_addr.substr(colon_pos + 1);
   	port = atoi(port_str.c_str());
   	std::cout << "Port: " << port << std::endl;
@@ -245,14 +255,15 @@ int main(int argc, char** argv) {
   }
 
   // std::fill_n(threads, num_threads, NULL);
-  free_threads = num_threads;
+  //free_threads = num_threads;
 
-  pool = new threadpool(num_threads);
+  //pool_ = new threadpool(num_threads);
 
-  StoreSrv store;
+  StoreSrv store(num_threads);
+  //StoreSrv store;
   store.run();
 
-  delete pool;
+  //delete pool;
   
   return 0;
 }

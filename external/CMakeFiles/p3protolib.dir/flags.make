@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/ritarka/cs4210/project3_template/external -I/home/ritarka/cs4210/project3_template/external/protos -isystem /home/ritarka/.local/include
 
-CXX_FLAGS = -g
+CXX_FLAGS = 
 

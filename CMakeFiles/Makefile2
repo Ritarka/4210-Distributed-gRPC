@@ -160,12 +160,12 @@ external/CMakeFiles/p3protolib.dir/clean:
 src/CMakeFiles/store.dir/all: external/CMakeFiles/p3protolib.dir/all
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/store.dir/build.make src/CMakeFiles/store.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/store.dir/build.make src/CMakeFiles/store.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/ritarka/cs4210/project3_template/CMakeFiles --progress-num=13,14,15 "Built target store"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/ritarka/cs4210/project3_template/CMakeFiles --progress-num=13,14 "Built target store"
 .PHONY : src/CMakeFiles/store.dir/all
 
 # Build rule for subdir invocation for target.
 src/CMakeFiles/store.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/ritarka/cs4210/project3_template/CMakeFiles 9
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/ritarka/cs4210/project3_template/CMakeFiles 8
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/store.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/ritarka/cs4210/project3_template/CMakeFiles 0
 .PHONY : src/CMakeFiles/store.dir/rule

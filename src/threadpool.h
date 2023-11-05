@@ -9,6 +9,8 @@
 class threadpool {
 public:
     threadpool(int num_threads);
+    //when threadpool object is destroyed
+    ~threadpool();
     void start();
     void queueJob(const std::function<void()>& job);
     void stop();
@@ -22,5 +24,7 @@ private:
     std::condition_variable mutex_condition; // Allows threads to wait on new jobs or termination 
     std::vector<std::thread> threads;
     std::queue<std::function<void()>> jobs;
+    //count number of active threads - shared
+    std::atomic<int> active_threads;
 };
 
