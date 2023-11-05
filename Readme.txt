@@ -27,3 +27,5 @@ Citations:
 * https://github.com/grpc/grpc/blob/v1.58.0/examples/cpp/helloworld/greeter_async_client.cc
 * https://github.com/grpc/grpc/blob/v1.58.0/examples/cpp/helloworld/greeter_async_server.cc
 * https://grpc.io/docs/languages/cpp/async/
+* We also used the site below to assist with out threadpool implementation
+* https://stackoverflow.com/questions/15752659/thread-pooling-in-c11

@@ -61,7 +61,6 @@ class StoreSrv final {
   ~StoreSrv() {
     //destroy threadpool when server shutsdown
     //pool_.stop();
-    pool_.Terminate();
     server_->Shutdown();
     // Always shutdown the completion queue after the server.
     cq_->Shutdown();
@@ -128,6 +127,9 @@ class StoreSrv final {
           //grpc channel to vendor using vendor_address_
           std::shared_ptr<Channel> channel = grpc::CreateChannel(vendor_address_, grpc::InsecureChannelCredentials());
           std::unique_ptr<Vendor::Stub> vendor_stub = Vendor::NewStub(channel);
+
+          // std::cout << vendor_request.product_name() << std::endl;
+          vendor_request.set_product_name(request_.product_name());
           
           //make the call to vendor
           grpc::ClientContext vendor_context;
@@ -166,7 +168,6 @@ class StoreSrv final {
         responder_.Finish(reply_, Status::OK, this);
       } else {
         GPR_ASSERT(status_ == FINISH);
-        // Once in the FINISH state, deallocate ourselves (CallData).
         delete this;
       }
     }
@@ -210,10 +211,8 @@ class StoreSrv final {
       GPR_ASSERT(cq_->Next(&tag, &ok));
      // q_lock.unlock(); // release the mutex
       GPR_ASSERT(ok);
-      // pool->queueJob(static_cast<CallData*>(tag)->Proceed);
-      // pool->queueJob([&]{ static_cast<CallData*>(tag)->Proceed(); });
       pool_.queueJob([this, tag](){ static_cast<CallData*>(tag)->Proceed(); });
-      //static_cast<CallData*>(tag)->Proceed();
+      // static_cast<CallData*>(tag)->Proceed();
 
     }
 
@@ -270,23 +269,3 @@ int main(int argc, char** argv) {
   
   return 0;
 }
-
-      // if (free_threads) {
-      //   std::unique_ptr<CallData> ptr = std::make_unique<CallData>(tag);
-        
-      //   // if threadpool free execute, else wait
-        
-      //   int i;
-      //   for (i = 0; i < num_threads; i++) {
-      //     if (threads[i] == NULL) break;
-      //   }
-      //   threads[i] = new std::thread(ptr->Proceed);
-      //   free_threads--;
-      // } else {
-      //   for (int i = 0; i < num_threads; i++) {
-      //     if (threads[i]->joinable()) {
-      //       threads[i]->join();
-      //       free_threads++;
-      //     }
-      //   }
-      // }

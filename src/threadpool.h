@@ -9,13 +9,8 @@
 class threadpool {
 public:
     threadpool(int num_threads);
-    //when threadpool object is destroyed
     ~threadpool();
-    //void start();
     void queueJob(std::function<void()> job);
-    //void stop();
-    //bool busy();
-    void Terminate();
 
 private:
     void threadLoop();
