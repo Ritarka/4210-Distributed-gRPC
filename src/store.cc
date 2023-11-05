@@ -119,50 +119,75 @@ class StoreSrv final {
         // part of its FINISH state.
         new CallData(service_, cq_);
 
+        std::unique_ptr<grpc::CompletionQueue> client_cq_(new grpc::CompletionQueue);
 
-        for (std::string vendor_address_ : vendor_addresses) {
+        std::vector<BidReply> replies(vendor_addresses.size());
+        std::vector<Status> statuses(vendor_addresses.size());
+        std::vector<std::unique_ptr<Vendor::Stub>> stubs(vendor_addresses.size());
+
+
+        for (int i = 0; i < vendor_addresses.size(); i++) {
+          std::string vendor_address_ = vendor_addresses[i];
+
           BidQuery vendor_request; //create a request to vendors
-          BidReply vendor_reply; // create a response from vendors
+          // BidReply* vendor_reply = (BidReply*)malloc(sizeof(BidReply)); // create a response from vendors
           
           //grpc channel to vendor using vendor_address_
           std::shared_ptr<Channel> channel = grpc::CreateChannel(vendor_address_, grpc::InsecureChannelCredentials());
-          std::unique_ptr<Vendor::Stub> vendor_stub = Vendor::NewStub(channel);
+          stubs[i] = Vendor::NewStub(channel);
+          // stubs.push_back(stubs);
 
-          // std::cout << vendor_request.product_name() << std::endl;
           vendor_request.set_product_name(request_.product_name());
           
           //make the call to vendor
           grpc::ClientContext vendor_context;
           //client's completion queue
-          grpc::CompletionQueue client_cq_;
           //Status for client
-          Status client_status;
+          // Status* client_status = new Status();
           //this call needs to be async
-          std::unique_ptr<ClientAsyncResponseReader<BidReply>>rpc(vendor_stub->AsyncgetProductBid(&vendor_context, vendor_request, &client_cq_));
+          std::unique_ptr<ClientAsyncResponseReader<BidReply>>rpc(stubs[i]->AsyncgetProductBid(&vendor_context, vendor_request, client_cq_.get()));
           
           // Request that, upon completion of the RPC, "reply" be updated with the
           // server's response; "status" with the indication of whether the operation
           // was successful. Tag the request with the integer 1.
-          rpc->Finish(&vendor_reply, &client_status, (void*)1);
+          rpc->Finish(&replies[i], &statuses[i], (void*)i);
+
+          // void* client_got_tag;
+          // bool client_ok = false;
+
+          // GPR_ASSERT(client_cq_->Next(&client_got_tag, &client_ok));
+          // GPR_ASSERT(client_ok);
+
+          // int index = *((int*)(&client_got_tag));
+          // std::cout << index << std::endl;
+
+          // //process vendor response
+          // if(statuses[index].ok()){
+          // 	ProductInfo* product_info = reply_.add_products();
+          // 	product_info->set_vendor_id(replies[index].vendor_id());
+          // 	product_info->set_price(replies[index].price());
+          // }
+
+        }
+
+        for (int i = 0; i < vendor_addresses.size(); i++) {
           void* client_got_tag;
           bool client_ok = false;
-          //block until the next result is available
-          GPR_ASSERT(client_cq_.Next(&client_got_tag, &client_ok));
-          //verify that the result from client cq corresponds, by its tag
-          GPR_ASSERT(client_got_tag == (void*)1);
-          //and the request is completed succesfully 
+
+          GPR_ASSERT(client_cq_->Next(&client_got_tag, &client_ok));
           GPR_ASSERT(client_ok);
 
+          int index = *((int*)(&client_got_tag));
+          // std::cout << index << std::endl;
+
           //process vendor response
-          //ProductReply reply; //reply_ defined in private
-          if(client_status.ok()){
-          
+          if(statuses[index].ok()){
           	ProductInfo* product_info = reply_.add_products();
-          	product_info->set_vendor_id(vendor_reply.vendor_id());
-          	product_info->set_price(vendor_reply.price());
+          	product_info->set_vendor_id(replies[index].vendor_id());
+          	product_info->set_price(replies[index].price());
           }
         }
-        
+        // std::cout << "We are done" << std::endl;
         // And we are done! Let the gRPC runtime know we've finished
         status_ = FINISH;
         responder_.Finish(reply_, Status::OK, this);
